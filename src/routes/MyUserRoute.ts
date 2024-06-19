@@ -8,6 +8,7 @@ const router = express.Router()
 
 // api/my-user
 router.post("/", jwtCheck, MyUserController.createCurrentUser)
+// router.put("/", MyUserController.updateCurrentUser)
 
 
 export default router
