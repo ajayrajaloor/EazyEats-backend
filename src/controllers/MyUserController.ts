@@ -24,32 +24,32 @@ try {
 }
 
 
-// const updateCurrentUser = async (req:Request,res:Response) => {
-//     try {
-//         const {name, addressLine1, country, city} = req.body
-//         const user = await User.findById(req.userId)
+const updateCurrentUser = async (req:Request,res:Response) => {
+    try {
+        const {name, addressLine1, country, city} = req.body
+        const user = await User.findById(req.userId)
 
-//         if(!user){
-//             res.status(404).json({message:"User not found"})
-//         }
+        if(!user){
+           return res.status(404).json({message:"User not found"})
+        }
 
-//         user.name = name;
-//         user.addressLine1 = addressLine1;
-//         user.country = country;
-//         user.city = city;
+        user.name = name;
+        user.addressLine1 = addressLine1;
+        user.country = country;
+        user.city = city;
 
-//         await user.save()
+        await user.save()
 
-//         res.send(user)
+        res.send(user)
 
-//     } catch (error) {
-//         console.log(error);
-//         res.status(500).json({message:"Error updating user"})
-//     }
-// }
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error updating user"})
+    }
+}
 
 
 export default {
     createCurrentUser,
-    // updateCurrentUser
+    updateCurrentUser
 }
