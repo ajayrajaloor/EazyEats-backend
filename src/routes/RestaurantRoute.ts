@@ -5,7 +5,7 @@ import RestaurantController from "../controllers/RestaurantController";
 const router = express.Router();
 
 router.get("/search/:city", param("city").isString().trim().notEmpty().withMessage("City parament must be a valid string"),
-RestaurantController.searchRestaurants
+    RestaurantController.searchRestaurants
 )
 
 export default router;
