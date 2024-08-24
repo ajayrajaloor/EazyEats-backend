@@ -6,6 +6,8 @@ import Order from "../models/Order";
 
 const STRIPE = new Stripe(process.env.STRIPE_API_KEY as string);
 const FRONTEND_URL = process.env.FRONTEND_URL as string;
+const STRIPE_ENDPOINT_SECRET = process.env.STRIPE_WEBHOOK_SECRET as string;
+
 
 type CheckoutSessionRequest = {
     cartItems: {
@@ -25,10 +27,37 @@ type CheckoutSessionRequest = {
 }
 
 const stripeWebhookHandler = async (req:Request, res:Response) => {
-    console.log("RECIEVED EVENT");
-    console.log("============");
-    console.log("EVENT:", req.body);
-    res.send()
+    
+    let stripeEvent;
+   
+    try {
+    const sig = req.headers["stripe-signature"]
+    
+    stripeEvent = STRIPE.webhooks.constructEvent(req.body, sig as string, STRIPE_ENDPOINT_SECRET);
+     
+   } catch (error: any) {
+    console.log(error);
+    return res.status(400).send(`Webhook error: ${error.message}`)    
+   }
+
+
+   if(stripeEvent.type === "checkout.session.completed"){
+    const session = stripeEvent.data.object as Stripe.Checkout.Session;
+    const order = await Order.findById(session.metadata?.orderId);
+
+    if(!order){
+        return res.status(404).json({message:"Order not found"})
+    }
+
+
+    order.totalAmount = session.amount_total ? session.amount_total / 100 : 0;
+
+    order.status = "paid";
+
+    await order.save();
+   }
+
+   res.status(200).send()
 }
 
 const createCheckoutSession = async (req: Request, res:Response) =>{
@@ -38,6 +67,8 @@ const createCheckoutSession = async (req: Request, res:Response) =>{
         const restaurant = await Restaurant.findById(
             checkoutSessionRequest.restaurantId
         );
+
+        
 
         if(!restaurant) {
             throw new Error("Restaurant not found")
@@ -50,11 +81,13 @@ const createCheckoutSession = async (req: Request, res:Response) =>{
             deliveryDetails: checkoutSessionRequest.deliveryDetails,
             cartItems: checkoutSessionRequest.cartItems,
             createdAt: new Date(),
-        })
+        });
 
         const lineItems = createLineItems(checkoutSessionRequest, restaurant.menuItems);
+        
 
         const session = await createSession(lineItems, newOrder._id.toString() , restaurant.deliveryPrice, restaurant._id.toString());
+        
 
         if(!session.url) {
             return res.status(500).json({message: "Error create stripe session"})
@@ -74,6 +107,7 @@ const createLineItems = (checkoutSessionRequest: CheckoutSessionRequest, menuIte
      // foreach cartitem, get the menuitem object from the restaurant (to get the price)
      const lineItems = checkoutSessionRequest.cartItems.map((cartItem) =>{
         const menuItem = menuItems.find((item) => item._id.toString() === cartItem.menuItemId.toString());
+        
 
         if(!menuItem) {
             throw new Error(`Menu item not found : ${cartItem.menuItemId}`)
@@ -83,13 +117,14 @@ const createLineItems = (checkoutSessionRequest: CheckoutSessionRequest, menuIte
         const line_item : Stripe.Checkout.SessionCreateParams.LineItem = {
             price_data: {
                 currency: "inr",
-                unit_amount: menuItem.price * 100,
+                unit_amount: menuItem.price *100, // price in paise (smallest unit for INR)
                 product_data: {
                     name: menuItem.name,
                 },
             },
             quantity: parseInt(cartItem.quantity)
         };
+        
         //return the line item array
         return line_item;
      });
@@ -107,7 +142,7 @@ const createSession = async (lineItems: Stripe.Checkout.SessionCreateParams.Line
                     display_name: "Delivery",
                     type: "fixed_amount",
                     fixed_amount: {
-                        amount: deliveryPrice * 100,
+                        amount: deliveryPrice*100,
                         currency: "inr",
                     }
                 }
