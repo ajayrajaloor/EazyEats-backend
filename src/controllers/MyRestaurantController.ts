@@ -56,13 +56,15 @@ const createMyRestaurant = async (req: Request, res: Response) => {
 const getMyRestaurantOrders = async (req:Request, res:Response) =>{
     try {
         const restaurant = await Restaurant.findOne({user:req.userId});
-        if(!restaurant){
-            return res.status(404).json({message:"restaurant not found"})
-        }
+        
+        if(!restaurant) return res.status(404).json({message:"restaurant not found"})
+        
 
-        const orders = await Order.find({restaurant: restaurant._id})
-        .populate("restaurant")
-        .populate("user");
+        const orders = await Order.find({ restaurant: restaurant._id }).populate("restaurant").populate("user")
+
+        console.log(orders,"orderssss");
+
+        res.json(orders);
     } catch (error) {
         console.log(error);
         res.status(500).json({message: "something went wrong"})
@@ -76,18 +78,26 @@ const updateOrderStatus = async(req:Request,res:Response) =>{
         const {orderId} = req.params;
         const {status} = req.body;
 
+        console.log(orderId,status,"gggggrrrrrrrr");
+        
+
         const order = await Order.findById(orderId);
+        console.log(order,"oooooorrrrrrrr");
+        
         if(!order){
             return res.status(404).json({message:"order not found"})
         }
 
         const restaurant = await Restaurant.findById(order.restaurant)
+console.log(restaurant,"rrrrrrrrrrtttttttt");
 
         if(restaurant?.user?._id.toString() !== req.userId){
              return res.status(401).send();
         }
 
         order.status = status;
+        console.log(order,"dddddddddddeeeeeeeeee");
+        
         await order.save();
 
         res.status(200).json(order);
